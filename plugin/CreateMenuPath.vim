@@ -1,7 +1,10 @@
 " -----------------------------------------------------------------------------
+"                          CreateMenuPath Version 1.3
+"  Written and Copyright 2002 by Christian J. Robinson <infynity@onewest.net>
+"        Distributed under the terms of the GNU GPL Version 2 or later.
+" -----------------------------------------------------------------------------
 "
-" CreateMenuPath Version 1.2
-"
+" Purpose:
 " Create a menu that mirrors a directory tree.
 "
 " Usage:
@@ -14,7 +17,13 @@
 "
 " -----------------------------------------------------------------------------
 
+let s:cpo_save = &cpo
+set cpo&vim
+
 function! CreateMenuPath(path, ...)
+
+	let cpo_save = &cpo
+	set cpo&vim
 
 	let priority = ''
 	let menuname = 'Files'
@@ -39,15 +48,19 @@ function! CreateMenuPath(path, ...)
 		return
 	endif
 
-	silent! exe 'unmenu ' . menuname
-	silent! exe 'unmenu! ' . menuname
-
 	let originalpriority = priority
 	let originalmenuname = menuname
+
+	" Remove old menu if it exists; create a dummy entry to keep a torn off
+	" menu from disappearing:
+	silent! exe 'unmenu ' . menuname
+	silent! exe 'noremenu ' . originalpriority . '.1 ' . originalmenuname . '.Dummy <Nop>'
+	silent! exe 'unmenu! ' . menuname
 
 	let files=glob(a:path . "/*")
 
 	if files == ""
+		silent! exe 'unmenu ' . originalmenuname . '.Dummy'
 		return
 	endif
 
@@ -95,7 +108,7 @@ function! CreateMenuPath(path, ...)
 				\ ignore_pat
 			\)
 		else
-			exe 'amenu ' . priority . '.' . subpriority
+			exe 'anoremenu ' . priority . '.' . subpriority
 				\ . ' ' . menuname . '.' . '&' . shortcutlist[i] . '\.\ \ ' . file
 				\ . ' :confirm e ' . escape(fullfile, ' |"') . '<CR>'
 		endif
@@ -104,20 +117,27 @@ function! CreateMenuPath(path, ...)
 
 	endwhile
 
-	" Add cd/rescan items to this menu, if any files/submenus appeared in it:
+	" Add cd/refresh items to this menu, if any files/submenus appeared in it:
 	if subpriority > 20
-		exe 'amenu ' . originalpriority . '.10'
+		exe 'anoremenu ' . originalpriority . '.10'
 			\ . ' ' . originalmenuname . '.&CD\ Here'
 			\ . ' :cd ' . escape(a:path, ' |"') . '<CR>'
-		exe 'amenu <silent> ' . originalpriority . '.20'
-			\ . ' ' . originalmenuname . '.&Rescan'
+		exe 'anoremenu <silent> ' . originalpriority . '.20'
+			\ . ' ' . originalmenuname . '.&Refresh'
 			\ . " :call CreateMenuPath('"
 				\ . a:path . "', '"
 				\ . originalmenuname . "', '"
 				\ . originalpriority . "', '"
 				\ . escape(ignore_pat, '|') .
 			\ "')<CR>"
-		exe 'menu ' . originalpriority . '.25' . ' ' . originalmenuname . '.-sep1- <nul>'
+		exe 'anoremenu ' . originalpriority . '.25' . ' ' . originalmenuname . '.-sep1- <nul>'
 	endif
 
+	silent! exe 'unmenu ' . originalmenuname . '.Dummy'
+
+	let &cpo = cpo_save
+
 endfunction
+
+let &cpo = s:cpo_save
+unlet s:cpo_save
