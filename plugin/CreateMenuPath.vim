@@ -1,5 +1,6 @@
 " -----------------------------------------------------------------------------
-" CreateMenuPath Version 1.1
+"
+" CreateMenuPath Version 1.2
 "
 " Create a menu that mirrors a directory tree.
 "
@@ -11,14 +12,12 @@
 "
 " Requires at least Vim6 to run.
 "
-" TODO :
-"   Create sub-menus for menus with more than 30(?) entries.
 " -----------------------------------------------------------------------------
 
 function! CreateMenuPath(path, ...)
 
-	let priority = ""
-	let menuname = "Files"
+	let priority = ''
+	let menuname = 'Files'
 	let ignore_pat = '\%\(\CRCS\|CVS\|\.\%\(\c'
 		\ . 'png\|gif\|jpe\=g\|ico\|bmp\|tiff\='
 		\ . '\|mpg\|mov\|avi\|rm\|qt'
@@ -36,12 +35,15 @@ function! CreateMenuPath(path, ...)
 	if a:0 == 3
 		let ignore_pat = a:3
 	elseif a:0 > 3
-		echoerr "Too many arguments."
+		echoerr 'Too many arguments.'
 		return
 	endif
 
 	silent! exe 'unmenu ' . menuname
 	silent! exe 'unmenu! ' . menuname
+
+	let originalpriority = priority
+	let originalmenuname = menuname
 
 	let files=glob(a:path . "/*")
 
@@ -49,11 +51,16 @@ function! CreateMenuPath(path, ...)
 		return
 	endif
 
+	" Shortcut key list (C, R and M will be used elsewhere, so don't include
+	" them):
+	let shortcutlist = '1234567890ABDEFGHIJKLNOPQSTUVWXYZ'
+
 	" Don't mess with this:
 	let subpriority = 20
 
 	let start = 0
 	let match = 0
+	let i = 0
 
 	while (match != -1)
 
@@ -69,28 +76,48 @@ function! CreateMenuPath(path, ...)
 			continue
 		endif
 
-		let subpriority = subpriority + 10
-		let file = escape(fnamemodify(fullfile, ":t"), "\\. \t|")
+		if i >= 29 && match > -1
+			let menuname = menuname . '.\.\.\.&More'
+			let priority = priority . '.' . subpriority
+			let subpriority = 20
+			let i = 0
+		else
+			let subpriority = subpriority + 10
+		endif
+
+		let file = escape(fnamemodify(fullfile, ':t'), "\\. \t|")
 
 		if isdirectory(fullfile)
-			call CreateMenuPath(fullfile, menuname . '.' . file, priority . '.' . subpriority, ignore_pat)
+			call CreateMenuPath(
+				\ fullfile,
+				\ menuname . '.' . '&' . shortcutlist[i] . '\.\ \ ' . file,
+				\ priority . '.' . subpriority,
+				\ ignore_pat
+			\)
 		else
-			exe "amenu " . priority . '.' . subpriority
-				\ . ' ' . menuname . '.' . file
-				\ . " :confirm e " . escape(fullfile, ' |') . "<CR>"
+			exe 'amenu ' . priority . '.' . subpriority
+				\ . ' ' . menuname . '.' . '&' . shortcutlist[i] . '\.\ \ ' . file
+				\ . ' :confirm e ' . escape(fullfile, ' |"') . '<CR>'
 		endif
+
+		let i = i + 1
 
 	endwhile
 
 	" Add cd/rescan items to this menu, if any files/submenus appeared in it:
 	if subpriority > 20
-		exe "amenu " . priority . '.10'
-			\ . ' ' . menuname . '.CD\ Here'
-			\ . ' :cd ' . a:path "<CR>"
-		exe "amenu <silent> " . priority . '.20'
-			\ . ' ' . menuname . '.Rescan'
-			\ . ' :call CreateMenuPath(' . a:path . ', ' . priority . ', ' . ignore_pat . ")<CR>"
-		exe "menu " . priority . '.25' . ' ' . menuname . '.-sep1- <nul>'
+		exe 'amenu ' . originalpriority . '.10'
+			\ . ' ' . originalmenuname . '.&CD\ Here'
+			\ . ' :cd ' . escape(a:path, ' |"') . '<CR>'
+		exe 'amenu <silent> ' . originalpriority . '.20'
+			\ . ' ' . originalmenuname . '.&Rescan'
+			\ . " :call CreateMenuPath('"
+				\ . a:path . "', '"
+				\ . originalmenuname . "', '"
+				\ . originalpriority . "', '"
+				\ . escape(ignore_pat, '|') .
+			\ "')<CR>"
+		exe 'menu ' . originalpriority . '.25' . ' ' . originalmenuname . '.-sep1- <nul>'
 	endif
 
 endfunction
