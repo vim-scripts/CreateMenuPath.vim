@@ -1,5 +1,5 @@
 " -----------------------------------------------------------------------------
-"                          CreateMenuPath Version 1.3
+"                          CreateMenuPath Version 1.4
 "  Written and Copyright 2002 by Christian J. Robinson <infynity@onewest.net>
 "        Distributed under the terms of the GNU GPL Version 2 or later.
 " -----------------------------------------------------------------------------
@@ -13,12 +13,21 @@
 " Default menu name is "Files", no default priority.
 " A default filename ignore pattern is provided, but is far from "complete".
 "
+" The global variable "CMP_Recurse_Limit" can be set to specify the maximum
+" sub-directory depth to scan.  Set it to 0 (the default) for infinite
+" recursion.  Set it to 1 to not scan only the specified directory.
+"
 " Requires at least Vim6 to run.
 "
 " -----------------------------------------------------------------------------
 
 let s:cpo_save = &cpo
 set cpo&vim
+
+if ! exists('g:CMP_Recurse_Limit')
+	let g:CMP_Recurse_Limit = 0
+endif
+let s:recursions = 1
 
 function! CreateMenuPath(path, ...)
 
@@ -101,16 +110,29 @@ function! CreateMenuPath(path, ...)
 		let file = escape(fnamemodify(fullfile, ':t'), "\\. \t|")
 
 		if isdirectory(fullfile)
+
+			if g:CMP_Recurse_Limit > 0 && s:recursions >= g:CMP_Recurse_Limit
+				let subpriority = subpriority - 10
+				continue
+			endif
+
+			let s:recursions = s:recursions + 1
+
 			call CreateMenuPath(
 				\ fullfile,
 				\ menuname . '.' . '&' . shortcutlist[i] . '\.\ \ ' . file,
 				\ priority . '.' . subpriority,
 				\ ignore_pat
 			\)
+
+			let s:recursions = s:recursions - 1
+
 		else
+
 			exe 'anoremenu ' . priority . '.' . subpriority
 				\ . ' ' . menuname . '.' . '&' . shortcutlist[i] . '\.\ \ ' . file
 				\ . ' :confirm e ' . escape(fullfile, ' |"') . '<CR>'
+
 		endif
 
 		let i = i + 1
@@ -130,7 +152,7 @@ function! CreateMenuPath(path, ...)
 				\ . originalpriority . "', '"
 				\ . escape(ignore_pat, '|') .
 			\ "')<CR>"
-		exe 'anoremenu ' . originalpriority . '.25' . ' ' . originalmenuname . '.-sep1- <nul>'
+		exe 'anoremenu ' . originalpriority . '.25' . ' ' . originalmenuname . '.-sep1- <Nop>'
 	endif
 
 	silent! exe 'unmenu ' . originalmenuname . '.Dummy'
