@@ -1,0 +1,16 @@
+This is a mirror of http://www.vim.org/scripts/script.php?script_id=175
+
+This file provides a function to create a menu that mirrors a directory tree.
+
+Usage:
+CreateMenuPath({path} [, {menu name} [, {menu priority} [, {filename ignore pattern1} [, {filename ignore pattern2} ...]]]])
+
+Examples:
+:call CreateMenuPath('~')   " Creates a menu of your home directory.
+
+:call CreateMenuPath('~/public_html', 'Files.Web\ Page', '600.100', '\c.\(gif\|jpe\=g\|png\|ico\|bmp\|tiff\=\)$')  " Files.Web Page menu, priority 600.100, ignoring some image files.
+
+A default filename ignore pattern is provided which ignores a number of image, audio and archive files, but it's incomplete.
+
+The global variable "CMP_Recurse_Limit" can be set to specify the maximum sub-directory depth to scan.  Set it to 0 (the default) for infinite recursion.  Set it to 1 to scan only the specified directory.
+
