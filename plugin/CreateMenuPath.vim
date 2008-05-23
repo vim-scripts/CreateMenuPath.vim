@@ -1,25 +1,31 @@
 " -----------------------------------------------------------------------------
-"                          CreateMenuPath Version 1.5
-"  Written and Copyright 2002 by Christian J. Robinson <infynity@onewest.net>
-"        Distributed under the terms of the GNU GPL Version 2 or later.
+"                         CreateMenuPath -- Version 2.0
+"      Copyright 2002-2008 by Christian J. Robinson <infynity@onewest.net>
+"     Distributed under the terms of the Vim license.  See ":help license".
 " -----------------------------------------------------------------------------
 "
 " Purpose:
 " Create a menu that mirrors a directory tree.
 "
 " Usage:
-" CreateMenuPath({path} [, {menu name} [, {menu priority} [, {filename ignore pattern}]]])
+" CreateMenuPath({path} [, {menu name} [, {menu priority} [, {filename ignore pattern1} [, {filename ignore pattern2} ...]]]])
 "
-" Default menu name is "Files", no default priority.
-" A default filename ignore pattern is provided, but is far from "complete".
+" The default menu name is "Files", with no default priority.
+"
+" A default filename ignore pattern is provided, but it is far from
+" "complete".
 "
 " The global variable "CMP_Recurse_Limit" can be set to specify the maximum
 " sub-directory depth to scan.  Set it to 0 (the default) for infinite
 " recursion.  Set it to 1 to scan only the specified directory.
 "
-" Requires at least Vim6 to run.
+" Requires at least Vim 7 to run.
 "
 " -----------------------------------------------------------------------------
+
+if v:version < 700
+	finish
+endif
 
 let s:cpo_save = &cpo
 set cpo&vim
@@ -36,25 +42,24 @@ function! CreateMenuPath(path, ...)
 
 	let priority = ''
 	let menuname = 'Files'
-	let ignore_pat = '\%\(\CRCS\|CVS\|\.\%\(\c'
-		\ . 'png\|gif\|jpe\=g\|ico\|bmp\|tiff\='
-		\ . '\|mpg\|mov\|avi\|rm\|qt'
-		\ . '\|zip\|tar\|tar\.gz\|tgz\|tar\.bz2'
-		\ . '\|mp[32]\|wav\|au\|ogg\|mid'
-		\ . '\|exe'
-		\ . '\)\)$'
+	let ignore_pats = [
+				\ '\C\%\(RCS\|CVS\)',
+				\ '\c\.\%\(png\|gif\|jpe\=g\|ico\|bmp\|tiff\=\|mpg\|mov\|avi\|rm\|qt\|zip\|tar\|tar\.gz\|tgz\|tar\.bz2\|mp[32]\|wav\|au\|ogg\|mid\|exe\)$',
+				\ '\~$',
+			\ ]
 
-	if a:0 >= 1
+	if a:0 >= 1 && a:1 != ''
 		let menuname = a:1
 	endif
-	if a:0 >= 2
+	if a:0 >= 2 && a:2 != ''
 		let priority = a:2
 	endif
-	if a:0 == 3
-		let ignore_pat = a:3
-	elseif a:0 > 3
-		echoerr 'Too many arguments.'
-		return
+	if a:0 >= 3
+		if type(a:3) == 3
+			let ignore_pats = a:3
+		else
+			let ignore_pats = a:000[2:-1]
+		endif
 	endif
 
 	let originalpriority = priority
@@ -76,12 +81,12 @@ function! CreateMenuPath(path, ...)
 			\ && a:path =~ '\\$'
 		\ )
 	\)
-		let files=glob(a:path . '*')
+		let files=split(glob(a:path . '*'), "\n")
 	else
-		let files=glob(a:path . '/*')
+		let files=split(glob(a:path . '/*'), "\n")
 	endif
 
-	if files == ''
+	if len(files) == 0
 		silent! exe 'unmenu ' . originalmenuname . '.Dummy'
 		return
 	endif
@@ -93,25 +98,22 @@ function! CreateMenuPath(path, ...)
 	" Don't mess with this:
 	let subpriority = 20
 
-	let start = 0
-	let match = 0
 	let i = 0
 
-	while (match != -1)
+	for fullfile in files
 
-		let match = match(files, "\n", start)
-		if match == -1
-			let fullfile = strpart(files, start)
-		else
-			let fullfile = strpart(files, start, match - start)
-			let start = match + 1
-		endif
-
-		if match(fullfile, ignore_pat) > -1
+		let ignore=0
+		for pat in ignore_pats
+			if match(fullfile, pat) > -1
+				let ignore=1
+				break
+			endif
+		endfor
+		if ignore
 			continue
 		endif
 
-		if i >= 29 && match > -1
+		if i >= 29 && exists('files[' . (i + 1) . ']')
 			let menuname = menuname . '.\.\.\.&More'
 			let priority = priority . '.' . subpriority
 			let subpriority = 20
@@ -136,7 +138,7 @@ function! CreateMenuPath(path, ...)
 				\ menuname . '.' . '&' . shortcutlist[i]
 					\ . '\.\ \ ' . file,
 				\ priority . '.' . subpriority,
-				\ ignore_pat
+				\ ignore_pats
 			\)
 
 			let s:recursions = s:recursions - 1
@@ -153,10 +155,9 @@ function! CreateMenuPath(path, ...)
 
 		let i = i + 1
 
-	endwhile
+	endfor
 
-	" Add cd/refresh items to this menu,
-	" if any files/submenus appeared in it:
+	" Add cd/refresh items to this menu, if any files/submenus appeared in it:
 	if subpriority > 20
 		exe 'anoremenu ' . originalpriority . '.10'
 			\ . ' ' . originalmenuname . '.&CD\ Here'
@@ -167,7 +168,7 @@ function! CreateMenuPath(path, ...)
 				\ . a:path . "', '"
 				\ . originalmenuname . "', '"
 				\ . originalpriority . "', '"
-				\ . escape(ignore_pat, '|') .
+				\ . escape(join(ignore_pats, "', '"), '|') .
 			\ "')<CR>"
 		exe 'anoremenu ' . originalpriority . '.25'
 			\ . ' ' . originalmenuname . '.-sep1- <Nop>'
